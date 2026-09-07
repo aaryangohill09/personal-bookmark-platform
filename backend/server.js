@@ -11,14 +11,33 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected");
-  })
-  .catch((error) => {
+let mongoConnection;
+
+async function connectDB() {
+  if (mongoose.connection.readyState === 1) {
+    return;
+  }
+
+  if (!mongoConnection) {
+    mongoConnection = mongoose.connect(process.env.MONGO_URI);
+  }
+
+  await mongoConnection;
+  console.log("MongoDB connected");
+}
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
     console.log("MongoDB connection error:", error.message);
-  });
+
+    res.status(500).json({
+      message: "Database connection failed"
+    });
+  }
+});
 
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/bookmarks", require("./routes/bookmarks"));
