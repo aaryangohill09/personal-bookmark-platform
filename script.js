@@ -1,91 +1,66 @@
 /* =========================
-   DATA
+   LOGIN PROTECTION
 ========================= */
 
-let bookmarks =
-    JSON.parse(localStorage.getItem("bookmarks")) || [];
+const currentPage = window.location.pathname.split("/").pop();
 
-let collections =
-    JSON.parse(localStorage.getItem("collections")) ||
-    ["General"];
+if (
+    (currentPage === "" || currentPage === "index.html") &&
+    !localStorage.getItem("token")
+) {
+    window.location.href = "login.html";
+}
+
+
+/* =========================
+   APP DATA
+========================= */
+
+let bookmarks = [];
+
+let collections = ["General"];
+
+let collectionsData = [];
 
 let currentView = "all";
 
 let selectedCollection = null;
 
-
 /* =========================
-   SAVE DATA
-========================= */
-
-function saveData() {
-
-    localStorage.setItem(
-        "bookmarks",
-        JSON.stringify(bookmarks)
-    );
-
-    localStorage.setItem(
-        "collections",
-        JSON.stringify(collections)
-    );
-}
-
-
-/* =========================
-   USER
+   USER / AUTH
 ========================= */
 
 function loadUser() {
-
-    const user =
-        JSON.parse(localStorage.getItem("user"));
-
-    const userName =
-        document.getElementById("userName");
-
-    const loginBtn =
-        document.getElementById("loginBtn");
+    const user = JSON.parse(localStorage.getItem("user"));
+    const userName = document.getElementById("userName");
+    const loginBtn = document.getElementById("loginBtn");
 
     if (!userName || !loginBtn) {
         return;
     }
 
     if (user) {
-
-        userName.textContent =
-            "Hi, " + user.name;
-
-        loginBtn.textContent =
-            "Logout";
-
+        userName.textContent = "Hi, " + user.name;
+        loginBtn.textContent = "Logout";
     } else {
-
         userName.textContent = "";
-
-        loginBtn.textContent =
-            "Login";
+        loginBtn.textContent = "Login";
     }
 }
 
 
 function loginAction() {
+    const token = localStorage.getItem("token");
 
-    const user =
-        localStorage.getItem("user");
-
-    if (user) {
-
+    if (token) {
+        localStorage.removeItem("token");
         localStorage.removeItem("user");
 
         alert("Logged out successfully.");
 
-        loadUser();
-
+        window.location.href = "login.html";
     } else {
-
-        window.location.href =
-            "login.html";
+        window.location.href = "login.html";
     }
 }
 
@@ -98,20 +73,17 @@ const registerForm =
     document.getElementById("registerForm");
 
 if (registerForm) {
-
     registerForm.addEventListener(
         "submit",
-        function (event) {
+        async function (event) {
 
             event.preventDefault();
-
 
             const name =
                 document
                     .getElementById("registerName")
                     .value
                     .trim();
-
 
             const email =
                 document
@@ -120,70 +92,61 @@ if (registerForm) {
                     .trim()
                     .toLowerCase();
 
-
             const password =
                 document
                     .getElementById("registerPassword")
                     .value;
 
-
-            const users =
-                JSON.parse(
-                    localStorage.getItem("users")
-                ) || [];
-
-
             const message =
-                document.getElementById(
-                    "registerMessage"
+                document.getElementById("registerMessage");
+
+            try {
+                const response =
+                    await fetch("/api/auth/register", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            name,
+                            email,
+                            password
+                        })
+                    });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    message.style.color = "#dc2626";
+                    message.textContent =
+                        data.message || "Registration failed.";
+                    return;
+                }
+
+                localStorage.setItem(
+                    "token",
+                    data.token
                 );
 
-
-            const exists =
-                users.some(
-                    user =>
-                        user.email === email
+                localStorage.setItem(
+                    "user",
+                    JSON.stringify(data.user)
                 );
 
-
-            if (exists) {
-
+                message.style.color = "#16a34a";
                 message.textContent =
-                    "Email already registered.";
+                    "Account created successfully!";
 
-                return;
-            }
-
-
-            users.push({
-                name,
-                email,
-                password
-            });
-
-
-            localStorage.setItem(
-                "users",
-                JSON.stringify(users)
-            );
-
-
-            message.style.color =
-                "#16a34a";
-
-            message.textContent =
-                "Account created successfully!";
-
-
-            setTimeout(
-                function () {
-
+                setTimeout(function () {
                     window.location.href =
-                        "login.html";
+                        "index.html";
+                }, 700);
 
-                },
-                1000
-            );
+            } catch (error) {
+                message.style.color = "#dc2626";
+                message.textContent =
+                    "Could not connect to server.";
+            }
         }
     );
 }
@@ -197,13 +160,11 @@ const loginForm =
     document.getElementById("loginForm");
 
 if (loginForm) {
-
     loginForm.addEventListener(
         "submit",
-        function (event) {
+        async function (event) {
 
             event.preventDefault();
-
 
             const email =
                 document
@@ -212,57 +173,57 @@ if (loginForm) {
                     .trim()
                     .toLowerCase();
 
-
             const password =
                 document
                     .getElementById("loginPassword")
                     .value;
 
-
-            const users =
-                JSON.parse(
-                    localStorage.getItem("users")
-                ) || [];
-
-
             const message =
-                document.getElementById(
-                    "loginMessage"
+                document.getElementById("loginMessage");
+
+            try {
+                const response =
+                    await fetch("/api/auth/login", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            email,
+                            password
+                        })
+                    });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    message.style.color = "#dc2626";
+                    message.textContent =
+                        data.message || "Invalid email or password.";
+                    return;
+                }
+
+                localStorage.setItem(
+                    "token",
+                    data.token
                 );
 
-
-            const user =
-                users.find(
-                    item =>
-                        item.email === email &&
-                        item.password === password
+                localStorage.setItem(
+                    "user",
+                    JSON.stringify(data.user)
                 );
 
+                window.location.href =
+                    "index.html";
 
-            if (!user) {
-
-                message.style.color =
-                    "#dc2626";
-
+            } catch (error) {
+                message.style.color = "#dc2626";
                 message.textContent =
-                    "Invalid email or password.";
-
-                return;
+                    "Could not connect to server.";
             }
-
-
-            localStorage.setItem(
-                "user",
-                JSON.stringify(user)
-            );
-
-
-            window.location.href =
-                "index.html";
         }
     );
 }
-
 
 /* =========================
    BOOKMARK MODAL
@@ -378,7 +339,7 @@ if (bookmarkForm) {
 
     bookmarkForm.addEventListener(
         "submit",
-        function (event) {
+        async function (event) {
 
             event.preventDefault();
 
@@ -431,49 +392,136 @@ if (bookmarkForm) {
             };
 
 
-            if (id) {
-
-                const bookmark =
-                    bookmarks.find(
-                        item =>
-                            item.id === id
-                    );
+            const token =
+                localStorage.getItem("token");
 
 
-                if (bookmark) {
+            if (!token) {
 
-                    Object.assign(
-                        bookmark,
-                        data
-                    );
-                }
+                alert("Please login first.");
 
-            } else {
+                window.location.href =
+                    "login.html";
 
-                bookmarks.push({
-
-                    id:
-                        Date.now().toString(),
-
-                    ...data,
-
-                    favorite: false,
-
-                    readLater: false,
-
-                    createdAt:
-                        new Date().toISOString()
-                });
+                return;
             }
 
 
-            saveData();
+            try {
 
-            closeBookmarkModal();
+                let response;
 
-            renderBookmarks();
 
-            renderCollections();
+                /* EDIT BOOKMARK */
+
+                if (id) {
+
+                    response =
+                        await fetch(
+                            `/api/bookmarks/${id}`,
+                            {
+                                method: "PUT",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+
+                                    "Authorization":
+                                        `Bearer ${token}`
+                                },
+
+                                body:
+                                    JSON.stringify(data)
+                            }
+                        );
+
+
+                }
+
+                /* ADD BOOKMARK */
+
+                else {
+
+                    response =
+                        await fetch(
+                            "/api/bookmarks",
+                            {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+
+                                    "Authorization":
+                                        `Bearer ${token}`
+                                },
+
+                                body:
+                                    JSON.stringify(data)
+                            }
+                        );
+                }
+
+
+                const result =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    alert(
+                        result.message ||
+                        "Could not save bookmark."
+                    );
+
+                    return;
+                }
+
+
+                /* UPDATE FRONTEND ARRAY */
+
+                if (id) {
+
+                    const index =
+                        bookmarks.findIndex(
+                            item =>
+                                item.id === id ||
+                                item._id === id
+                        );
+
+
+                    if (index !== -1) {
+
+                        bookmarks[index] = {
+                            ...result,
+                            id: result._id
+                        };
+                    }
+
+                } else {
+
+                    bookmarks.unshift({
+                        ...result,
+                        id: result._id
+                    });
+                }
+
+
+                closeBookmarkModal();
+
+                renderBookmarks();
+
+                renderCollections();
+
+
+            } catch (error) {
+
+                console.log(error);
+
+                alert(
+                    "Could not connect to server."
+                );
+            }
         }
     );
 }
@@ -483,7 +531,7 @@ if (bookmarkForm) {
    DELETE BOOKMARK
 ========================= */
 
-function deleteBookmark(id) {
+async function deleteBookmark(id) {
 
     const confirmed =
         confirm(
@@ -496,29 +544,100 @@ function deleteBookmark(id) {
     }
 
 
-    bookmarks =
-        bookmarks.filter(
-            item =>
-                item.id !== id
+    const token =
+        localStorage.getItem("token");
+
+
+    if (!token) {
+
+        alert("Please login first.");
+
+        window.location.href =
+            "login.html";
+
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/bookmarks/${id}`,
+                {
+                    method: "DELETE",
+
+                    headers: {
+                        "Authorization":
+                            `Bearer ${token}`
+                    }
+                }
+            );
+
+
+        const result =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            alert(
+                result.message ||
+                "Could not delete bookmark."
+            );
+
+            return;
+        }
+
+
+        bookmarks =
+            bookmarks.filter(
+                item =>
+                    item.id !== id &&
+                    item._id !== id
+            );
+
+
+        renderBookmarks();
+
+        renderCollections();
+
+
+    } catch (error) {
+
+        console.log(error);
+
+        alert(
+            "Could not connect to server."
         );
-
-
-    saveData();
-
-    renderBookmarks();
+    }
 }
-
-
 /* =========================
    FAVORITE
 ========================= */
 
-function toggleFavorite(id) {
+async function toggleFavorite(id) {
+
+    const token =
+        localStorage.getItem("token");
+
+
+    if (!token) {
+
+        alert("Please login first.");
+
+        window.location.href =
+            "login.html";
+
+        return;
+    }
+
 
     const bookmark =
         bookmarks.find(
             item =>
-                item.id === id
+                item.id === id ||
+                item._id === id
         );
 
 
@@ -527,26 +646,101 @@ function toggleFavorite(id) {
     }
 
 
-    bookmark.favorite =
-        !bookmark.favorite;
+    try {
+
+        const response =
+            await fetch(
+                `/api/bookmarks/${id}`,
+                {
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+
+                        "Authorization":
+                            `Bearer ${token}`
+                    },
+
+                    body: JSON.stringify({
+                        favorite:
+                            !bookmark.favorite
+                    })
+                }
+            );
 
 
-    saveData();
+        const result =
+            await response.json();
 
-    renderBookmarks();
+
+        if (!response.ok) {
+
+            alert(
+                result.message ||
+                "Could not update favorite."
+            );
+
+            return;
+        }
+
+
+        const index =
+            bookmarks.findIndex(
+                item =>
+                    item.id === id ||
+                    item._id === id
+            );
+
+
+        if (index !== -1) {
+
+            bookmarks[index] = {
+                ...result,
+                id: result._id
+            };
+        }
+
+
+        renderBookmarks();
+
+
+    } catch (error) {
+
+        console.log(error);
+
+        alert(
+            "Could not connect to server."
+        );
+    }
 }
-
 
 /* =========================
    READ LATER
 ========================= */
 
-function toggleReadLater(id) {
+async function toggleReadLater(id) {
+
+    const token =
+        localStorage.getItem("token");
+
+
+    if (!token) {
+
+        alert("Please login first.");
+
+        window.location.href =
+            "login.html";
+
+        return;
+    }
+
 
     const bookmark =
         bookmarks.find(
             item =>
-                item.id === id
+                item.id === id ||
+                item._id === id
         );
 
 
@@ -555,13 +749,73 @@ function toggleReadLater(id) {
     }
 
 
-    bookmark.readLater =
-        !bookmark.readLater;
+    try {
+
+        const response =
+            await fetch(
+                `/api/bookmarks/${id}`,
+                {
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+
+                        "Authorization":
+                            `Bearer ${token}`
+                    },
+
+                    body: JSON.stringify({
+                        readLater:
+                            !bookmark.readLater
+                    })
+                }
+            );
 
 
-    saveData();
+        const result =
+            await response.json();
 
-    renderBookmarks();
+
+        if (!response.ok) {
+
+            alert(
+                result.message ||
+                "Could not update Read Later."
+            );
+
+            return;
+        }
+
+
+        const index =
+            bookmarks.findIndex(
+                item =>
+                    item.id === id ||
+                    item._id === id
+            );
+
+
+        if (index !== -1) {
+
+            bookmarks[index] = {
+                ...result,
+                id: result._id
+            };
+        }
+
+
+        renderBookmarks();
+
+
+    } catch (error) {
+
+        console.log(error);
+
+        alert(
+            "Could not connect to server."
+        );
+    }
 }
 
 
@@ -569,11 +823,31 @@ function toggleReadLater(id) {
    VIEWS
 ========================= */
 
+function setActiveNav(activeButton) {
+
+    document
+        .querySelectorAll(".nav-item")
+        .forEach(button => {
+            button.classList.remove("active");
+        });
+
+    if (activeButton) {
+        activeButton.classList.add("active");
+    }
+}
+
+
 function showAll() {
 
     currentView = "all";
 
     selectedCollection = null;
+
+    setActiveNav(
+        document.querySelector(
+            '.nav-item[onclick="showAll()"]'
+        )
+    );
 
     renderBookmarks();
 }
@@ -585,6 +859,12 @@ function showFavorites() {
 
     selectedCollection = null;
 
+    setActiveNav(
+        document.querySelector(
+            '.nav-item[onclick="showFavorites()"]'
+        )
+    );
+
     renderBookmarks();
 }
 
@@ -594,6 +874,12 @@ function showReadLater() {
     currentView = "readLater";
 
     selectedCollection = null;
+
+    setActiveNav(
+        document.querySelector(
+            '.nav-item[onclick="showReadLater()"]'
+        )
+    );
 
     renderBookmarks();
 }
@@ -605,6 +891,33 @@ function showCollection(name) {
 
     selectedCollection = name;
 
+    document
+        .querySelectorAll(".nav-item")
+        .forEach(button => {
+            button.classList.remove("active");
+        });
+
+    document
+        .querySelectorAll(".collection-item")
+        .forEach(item => {
+            item.classList.remove("active");
+        });
+
+    const collections = document.querySelectorAll(".collection-item");
+
+    collections.forEach(item => {
+
+        const collectionName =
+            item.querySelector(".collection-name");
+
+        if (
+            collectionName &&
+           collectionName.textContent.trim().replace("📁 ", "") === name
+        ) {
+            item.classList.add("active");
+        }
+    });
+
     renderBookmarks();
 }
 
@@ -612,6 +925,7 @@ function showCollection(name) {
 /* =========================
    RENDER BOOKMARKS
 ========================= */
+
 
 function renderBookmarks() {
 
@@ -1110,19 +1424,225 @@ function closeCollectionModal() {
    EDIT COLLECTION
 ========================= */
 
-function editCollection(name) {
+async function editCollection(name) {
 
-    openCollectionModal(
-        name
-    );
+    const collection =
+        collectionsData.find(
+            item =>
+                item.name === name
+        );
+
+    if (!collection) {
+
+        alert(
+            "Collection not found."
+        );
+
+        return;
+    }
+
+
+    const newName =
+        prompt(
+            "Enter new collection name:",
+            name
+        );
+
+
+    if (newName === null) {
+        return;
+    }
+
+
+    const trimmedName =
+        newName.trim();
+
+
+    if (!trimmedName) {
+
+        alert(
+            "Collection name cannot be empty."
+        );
+
+        return;
+    }
+
+
+    if (trimmedName === name) {
+        return;
+    }
+
+
+    if (
+        collections.includes(
+            trimmedName
+        )
+    ) {
+
+        alert(
+            "Collection already exists."
+        );
+
+        return;
+    }
+
+
+    const token =
+        localStorage.getItem(
+            "token"
+        );
+
+
+    if (!token) {
+
+        alert(
+            "Please login first."
+        );
+
+        window.location.href =
+            "login.html";
+
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/collections/${collection._id}`,
+                {
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+
+                        "Authorization":
+                            `Bearer ${token}`
+                    },
+
+                    body:
+                        JSON.stringify({
+                            name:
+                                trimmedName
+                        })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            alert(
+                data.message ||
+                "Could not rename collection."
+            );
+
+            return;
+        }
+
+
+        collections =
+            collections.map(
+                item =>
+                    item === name
+                        ? data.name
+                        : item
+            );
+
+
+        collectionsData =
+            collectionsData.map(
+                item =>
+                    item._id ===
+                    collection._id
+                        ? data
+                        : item
+            );
+
+
+        bookmarks =
+            bookmarks.map(
+                bookmark => {
+
+                    if (
+                        bookmark.collection ===
+                        name
+                    ) {
+
+                        return {
+                            ...bookmark,
+                            collection:
+                                data.name
+                        };
+
+                    }
+
+                    return bookmark;
+                }
+            );
+
+
+        if (
+            selectedCollection ===
+            name
+        ) {
+
+            selectedCollection =
+                data.name;
+        }
+
+
+        renderCollections();
+
+        renderBookmarks();
+
+
+    } catch (error) {
+
+        console.log(error);
+
+        alert(
+            "Could not connect to server."
+        );
+    }
 }
-
-
 /* =========================
    DELETE COLLECTION
 ========================= */
 
-function deleteCollection(name) {
+async function deleteCollection(name) {
+
+    if (name === "General") {
+
+        alert(
+            "General collection cannot be deleted."
+        );
+
+        return;
+    }
+
+
+    const collection =
+        collectionsData.find(
+            item =>
+                item.name === name
+        );
+
+
+    if (!collection) {
+
+        alert(
+            "Collection not found."
+        );
+
+        return;
+    }
+
 
     const confirmed =
         confirm(
@@ -1135,49 +1655,121 @@ function deleteCollection(name) {
     }
 
 
-    bookmarks.forEach(
-        bookmark => {
-
-            if (
-                bookmark.collection ===
-                name
-            ) {
-
-                bookmark.collection =
-                    "General";
-            }
-        }
-    );
-
-
-    collections =
-        collections.filter(
-            item =>
-                item !== name
+    const token =
+        localStorage.getItem(
+            "token"
         );
 
 
-    if (
-        selectedCollection ===
-        name
-    ) {
+    if (!token) {
 
-        selectedCollection =
-            null;
+        alert(
+            "Please login first."
+        );
 
-        currentView =
-            "all";
+        window.location.href =
+            "login.html";
+
+        return;
     }
 
 
-    saveData();
+    try {
 
-    renderCollections();
+        const response =
+            await fetch(
+                `/api/collections/${collection._id}`,
+                {
+                    method: "DELETE",
 
-    renderBookmarks();
+                    headers: {
+                        "Authorization":
+                            `Bearer ${token}`
+                    }
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            alert(
+                data.message ||
+                "Could not delete collection."
+            );
+
+            return;
+        }
+
+
+        collections =
+            collections.filter(
+                item =>
+                    item !== name
+            );
+
+
+        collectionsData =
+            collectionsData.filter(
+                item =>
+                    item._id !==
+                    collection._id
+            );
+
+
+        bookmarks =
+            bookmarks.map(
+                bookmark => {
+
+                    if (
+                        bookmark.collection ===
+                        name
+                    ) {
+
+                        return {
+                            ...bookmark,
+                            collection:
+                                "General"
+                        };
+
+                    }
+
+                    return bookmark;
+                }
+            );
+
+
+        if (
+            selectedCollection ===
+            name
+        ) {
+
+            selectedCollection =
+                null;
+
+            currentView =
+                "all";
+        }
+
+
+        renderCollections();
+
+        renderBookmarks();
+
+
+
+    } catch (error) {
+
+        console.log(error);
+
+        alert(
+            "Could not connect to server."
+        );
+    }
 }
-
-
 /* =========================
    COLLECTION FORM
 ========================= */
@@ -1192,7 +1784,7 @@ if (collectionForm) {
 
     collectionForm.addEventListener(
         "submit",
-        function (event) {
+        async function (event) {
 
             event.preventDefault();
 
@@ -1215,6 +1807,11 @@ if (collectionForm) {
 
 
             if (!newName) {
+
+                alert(
+                    "Collection name cannot be empty."
+                );
+
                 return;
             }
 
@@ -1234,65 +1831,213 @@ if (collectionForm) {
             }
 
 
-            if (oldName) {
-
-                const index =
-                    collections.indexOf(
-                        oldName
-                    );
-
-
-                if (index !== -1) {
-
-                    collections[index] =
-                        newName;
-                }
-
-
-                bookmarks.forEach(
-                    bookmark => {
-
-                        if (
-                            bookmark.collection ===
-                            oldName
-                        ) {
-
-                            bookmark.collection =
-                                newName;
-                        }
-                    }
+            const token =
+                localStorage.getItem(
+                    "token"
                 );
 
 
-                if (
-                    selectedCollection ===
-                    oldName
-                ) {
+            if (!token) {
 
-                    selectedCollection =
-                        newName;
-                }
-
-            } else {
-
-                collections.push(
-                    newName
+                alert(
+                    "Please login first."
                 );
+
+                window.location.href =
+                    "login.html";
+
+                return;
             }
 
 
-            saveData();
+            try {
 
-            closeCollectionModal();
+                /* =========================
+                   EDIT EXISTING COLLECTION
+                ========================= */
 
-            renderCollections();
+                if (oldName) {
 
-            renderBookmarks();
+                    const collection =
+                        collectionsData.find(
+                            item =>
+                                item.name ===
+                                oldName
+                        );
+
+
+                    if (!collection) {
+
+                        alert(
+                            "Collection not found."
+                        );
+
+                        return;
+                    }
+
+
+                    const response =
+                        await fetch(
+                            `/api/collections/${collection._id}`,
+                            {
+                                method: "PUT",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+
+                                    "Authorization":
+                                        `Bearer ${token}`
+                                },
+
+                                body:
+                                    JSON.stringify({
+                                        name:
+                                            newName
+                                    })
+                            }
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (!response.ok) {
+
+                        alert(
+                            data.message ||
+                            "Could not update collection."
+                        );
+
+                        return;
+                    }
+
+
+                    collections =
+                        collections.map(
+                            name =>
+                                name === oldName
+                                    ? data.name
+                                    : name
+                        );
+
+
+                    collectionsData =
+                        collectionsData.map(
+                            item =>
+                                item._id ===
+                                collection._id
+                                    ? data
+                                    : item
+                        );
+
+
+                    bookmarks =
+                        bookmarks.map(
+                            bookmark =>
+                                bookmark.collection ===
+                                oldName
+                                    ? {
+                                        ...bookmark,
+                                        collection:
+                                            data.name
+                                    }
+                                    : bookmark
+                        );
+
+
+                    if (
+                        selectedCollection ===
+                        oldName
+                    ) {
+
+                        selectedCollection =
+                            data.name;
+                    }
+
+
+                    alert(
+                        "Collection renamed successfully."
+                    );
+
+                }
+
+
+                /* =========================
+                   CREATE NEW COLLECTION
+                ========================= */
+
+                else {
+
+                    const response =
+                        await fetch(
+                            "/api/collections",
+                            {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+
+                                    "Authorization":
+                                        `Bearer ${token}`
+                                },
+
+                                body:
+                                    JSON.stringify({
+                                        name:
+                                            newName
+                                    })
+                            }
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (!response.ok) {
+
+                        alert(
+                            data.message ||
+                            "Could not create collection."
+                        );
+
+                        return;
+                    }
+
+
+                    collectionsData.push(
+                        data
+                    );
+
+
+                    collections.push(
+                        data.name
+                    );
+
+                }
+
+
+                closeCollectionModal();
+
+                renderCollections();
+
+                renderBookmarks();
+
+
+            } catch (error) {
+
+                console.log(error);
+
+                alert(
+                    "Could not connect to server."
+                );
+            }
         }
     );
 }
-
-
 /* =========================
    COLLECTION MENU
 ========================= */
@@ -1437,6 +2182,167 @@ if (
 }
 
 
-renderCollections();
+/* =========================
+   LOAD DATA FROM BACKEND
+========================= */
 
-renderBookmarks();
+async function loadBookmarksFromAPI() {
+
+    const token =
+        localStorage.getItem(
+            "token"
+        );
+
+    if (!token) {
+        return;
+    }
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/bookmarks",
+                {
+                    method: "GET",
+
+                    headers: {
+                        "Authorization":
+                            `Bearer ${token}`
+                    }
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            console.log(
+                data.message ||
+                "Could not load bookmarks."
+            );
+
+            return;
+        }
+
+
+        bookmarks =
+            data.map(
+                bookmark => ({
+                    ...bookmark,
+                    id: bookmark._id
+                })
+            );
+
+
+        renderBookmarks();
+
+
+    } catch (error) {
+
+        console.log(error);
+
+    }
+}
+
+
+/* =========================
+   LOAD COLLECTIONS
+========================= */
+
+async function loadCollectionsFromAPI() {
+
+    const token =
+        localStorage.getItem(
+            "token"
+        );
+
+    if (!token) {
+        return;
+    }
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/collections",
+                {
+                    method: "GET",
+
+                    headers: {
+                        "Authorization":
+                            `Bearer ${token}`
+                    }
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            console.log(
+                data.message ||
+                "Could not load collections."
+            );
+
+            return;
+        }
+
+
+        collectionsData =
+            data;
+
+
+        collections =
+            data.map(
+                collection =>
+                    collection.name
+            );
+
+
+        if (
+            !collections.includes(
+                "General"
+            )
+        ) {
+
+            collections.unshift(
+                "General"
+            );
+        }
+
+
+        renderCollections();
+
+
+    } catch (error) {
+
+        console.log(error);
+
+    }
+}
+
+
+/* =========================
+   START BACKEND DATA
+========================= */
+
+if (
+    localStorage.getItem("token")
+) {
+
+    loadCollectionsFromAPI();
+
+    loadBookmarksFromAPI();
+
+} else {
+
+    renderCollections();
+
+    renderBookmarks();
+}

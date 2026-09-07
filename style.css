@@ -1012,6 +1012,16 @@ body.dark .collection-item:hover {
     background: #374151;
 }
 
+.collection-item.active {
+    background: #eef2ff;
+    color: #4f46e5;
+    font-weight: 600;
+}
+
+body.dark .collection-item.active {
+    background: #312e81;
+    color: white;
+}    
 body.dark .dark-btn {
     background: #374151;
 
